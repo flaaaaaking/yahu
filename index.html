@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Life Progress · 人生进度条（Notion 嵌入友好版）</title>
+<style>
+  :root{
+    --bg:#F7F7F9; --panel:#FFFFFF; --text:#1A1D23; --muted:#6B7380; --line:#E6E8EE;
+    --primary:#6AA7FF; --accent:#E9C77B; --ring: rgba(106,167,255,.35);
+  }
+  [data-theme="dark"]{
+    --bg:#0E1116; --panel:#151A23; --text:#E9EDF4; --muted:#9AA3B6; --line:#222938;
+    --primary:#77B3FF; --accent:#70E1C8; --ring: rgba(119,179,255,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--text); font:14px/1.6 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"PingFang SC","Microsoft Yahei"}
+  a{color:inherit}
+  .wrap{max-width:880px; margin:0 auto; padding:16px}
+  header{position:sticky; top:0; backdrop-filter:saturate(160%) blur(8px); background:color-mix(in srgb,var(--bg) 85%, transparent); z-index:5;}
+  .bar{display:flex; align-items:center; gap:10px; padding:10px 0}
+  .title{font-weight:800; letter-spacing:.2px}
+  .grow{flex:1}
+
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px}
+  .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+  .two{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  @media (max-width:640px){.two{grid-template-columns:1fr}}
+
+  input[type="text"],input[type="number"],input[type="date"],select,textarea{width:100%; background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:12px; padding:10px 12px; outline:none}
+  input[type="checkbox"]{transform: translateY(1px)}
+  .btn{appearance:none; border:1px solid var(--line); background:var(--panel); color:var(--text); padding:10px 14px; border-radius:12px; cursor:pointer}
+  .btn.primary{background:var(--primary); color:#0b1220; border:none; font-weight:700}
+  .btn:active{transform:translateY(1px)}
+  .btn:focus, .btn:focus-visible, .iconbtn:focus, .iconbtn:focus-visible, input:focus, textarea:focus, select:focus{outline:none; box-shadow:0 0 0 3px var(--ring)}
+  .hint{color:var(--muted); font-size:12px}
+  .muted{color:var(--muted)}
+
+  /* 主视图 */
+  .hero{display:grid; grid-template-columns:1fr auto; gap:16px; align-items:center}
+  @media (max-width:640px){.hero{grid-template-columns:1fr}}
+  .big{font-size:44px; font-weight:800; letter-spacing:0.5px; animation:breath 4s ease-in-out infinite alternate;}
+  @keyframes breath{from{opacity:.92} to{opacity:1}}
+
+  /* 进度条 */
+  .barwrap{position:relative; height:22px; border-radius:999px; background:linear-gradient(180deg, color-mix(in srgb,var(--panel) 70%, transparent), color-mix(in srgb,var(--panel) 85%, transparent)); border:1px solid var(--line); overflow:hidden}
+  .barfill{position:absolute; inset:0; width:0%; border-radius:999px; background:
+    conic-gradient(from 0deg, rgba(255,255,255,.35), rgba(255,255,255,.0) 25%) ,
+    linear-gradient(90deg, color-mix(in srgb,var(--primary) 50%, transparent), var(--primary));
+    background-size: 120px 120px, 200% 100%;
+    background-position: 0 0, 0 0;
+    animation: drift 30s linear infinite;
+  }
+  @keyframes drift{from{background-position: 0 0, 0 0} to{background-position: 120px 0, 200% 0}}
+
+  .stat{display:flex; gap:16px; flex-wrap:wrap}
+  .badge{font-size:12px; padding:4px 8px; border-radius:999px; background:color-mix(in srgb, var(--primary) 16%, var(--panel)); border:1px solid var(--line)}
+
+  /* 年度进度小环 */
+  .ring{width:78px; height:78px; position:relative}
+  .ring svg{display:block}
+  .ring .num{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px}
+
+  /* 对话框与关闭键（含 fallback） */
+  dialog{border:none; padding:0; border-radius:14px; width:min(720px,92vw); background:var(--panel); color:var(--text)}
+  dialog::backdrop{background:rgba(0,0,0,.35)}
+  .fallback-backdrop{position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; z-index:40}
+  dialog[data-fallback-open="true"]{
+    position:fixed; left:50%; right:auto; bottom:0; top:auto;
+    transform:translateX(-50%);
+    width:min(720px,92vw); max-height:80vh; overflow:auto;
+    display:block; z-index:41; background:var(--panel); color:var(--text);
+    border:none; border-radius:14px; box-shadow:0 -12px 40px rgba(0,0,0,.25)
+  }
+  .fallback-backdrop[data-show="true"]{ display:block }
+
+  .iconbtn{border:none; background:transparent; padding:6px; border-radius:10px; cursor:pointer}
+  .iconbtn[data-close]{ color: var(--text); font-weight:700; opacity:.9 }
+  [data-theme="dark"] .iconbtn[data-close]{ color:#FFFFFF; opacity:1 }
+  .iconbtn[data-close]:hover{ background:color-mix(in srgb, var(--primary) 18%, transparent) }
+
+  /* 颜色选择器 */
+  input[type="color"]{ height:38px; padding:0; border-radius:12px; border:1px solid var(--line); background:var(--panel); cursor:pointer }
+  input[type="color"]::-webkit-color-swatch-wrapper{ padding:4px; border-radius:12px }
+  input[type="color"]::-webkit-color-swatch{ border:none; border-radius:8px }
+  input[type="color"]::-moz-color-swatch{ border:none; border-radius:8px }
+
+  .poem{font-size:13px; color:var(--muted)}
+
+  /* 日期选择器图标在深色下提亮 */
+  input[type="date"]{ padding-right:36px; }
+  input[type="date"]::-webkit-calendar-picker-indicator{ width:18px; height:18px; margin-right:6px; border-radius:8px; background:transparent; cursor:pointer; }
+  [data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator{ filter: invert(1) brightness(1.1); }
+  input[type="date"]::-webkit-datetime-edit-fields-wrapper{ padding:2px 0; }
+
+  /* 复选框与数字输入 */
+  input[type="checkbox"]{ transform: translateY(1px); accent-color: var(--primary); }
+  input[type="number"]{ -moz-appearance: textfield; }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance: none; margin:0; }
+
+  /* 折叠分组 */
+  details.acd{ border:1px solid var(--line); border-radius:12px; padding:10px; background:var(--panel); }
+  details.acd+details.acd{ margin-top:10px; }
+  details.acd[open]{ box-shadow:0 0 0 3px var(--ring); }
+  details.acd>summary{ list-style:none; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:8px }
+  details.acd>summary::-webkit-details-marker{ display:none }
+</style>
+</head>
+<body>
+  <header>
+    <div class="wrap bar">
+      <div class="title">Life Progress · 人生进度条</div>
+      <div class="grow"></div>
+      <button class="btn" id="btnSettings">设置</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="panel">
+      <div class="hero">
+        <div>
+          <div class="big" id="lifePct">0.0%</div>
+          <div class="stat">
+            <span class="badge" id="awakeLine">清醒生命 0.0%</span>
+            <span class="badge" id="careerLine">职业生命 · 未设置</span>
+          </div>
+        </div>
+        <div class="ring" title="今年已过">
+          <svg viewBox="0 0 44 44" width="78" height="78" aria-hidden="true">
+            <circle cx="22" cy="22" r="18" stroke="var(--line)" stroke-width="6" fill="none"/>
+            <circle id="yearArc" cx="22" cy="22" r="18" stroke="var(--primary)" stroke-width="6" fill="none" stroke-linecap="round" stroke-dasharray="0 999" transform="rotate(-90 22 22)"/>
+          </svg>
+          <div class="num" id="yearPct">0%</div>
+        </div>
+      </div>
+
+      <div class="barwrap" style="margin:12px 0 6px">
+        <div class="barfill" id="barFill" style="width:0%"></div>
+      </div>
+      <div class="poem" id="poemLine">时间正在发生。</div>
+      <div class="hint">纯前端 · 本地存储 · 时区以你的浏览器为准。</div>
+    </section>
+  </main>
+
+  <!-- 自定义遮罩（fallback 用） -->
+  <div class="fallback-backdrop" id="backdrop"></div>
+
+  <!-- 设置对话框 -->
+  <dialog id="dlgSettings">
+    <div class="panel" style="margin:0">
+      <div class="row" style="justify-content:space-between">
+        <strong>设置</strong>
+        <button class="iconbtn" data-close title="关闭">✕</button>
+      </div>
+
+      <details class="acd" open>
+        <summary>个人信息</summary>
+        <div class="two" style="margin-top:10px">
+          <div>
+            <label>生日</label>
+            <input type="date" id="inBirth" />
+          </div>
+          <div>
+            <label>预期寿命（岁）</label>
+            <input type="number" id="inExpect" min="1" max="150" step="1" placeholder="80" />
+          </div>
+        </div>
+        <div class="two" style="margin-top:10px">
+          <div>
+            <label>平均睡眠时长（小时/天）</label>
+            <input type="number" id="inSleep" min="0" max="24" step="0.5" placeholder="7.5" />
+          </div>
+          <div class="muted" style="align-self:end">说明：清醒生命=剔除睡眠的生命时间占比。</div>
+        </div>
+      </details>
+
+      <details class="acd">
+        <summary>职业生命</summary>
+        <div class="panel" style="margin:10px 0 0">
+          <div class="row" style="justify-content:space-between">
+            <strong>职业刻度</strong>
+            <label class="row" style="gap:6px"><input type="checkbox" id="enCareer"/> 启用</label>
+          </div>
+          <div id="careerCfg" style="display:none; margin-top:8px">
+            <div class="two">
+              <div>
+                <label>起始年龄</label>
+                <input type="number" id="inStartAge" min="10" max="100" step="1" placeholder="22"/>
+              </div>
+              <div>
+                <label>结束年龄</label>
+                <input type="number" id="inEndAge" min="11" max="120" step="1" placeholder="60"/>
+              </div>
+            </div>
+            <div class="two">
+              <div>
+                <label>工作开始时间（小时）</label>
+                <input type="number" id="inStartHour" min="0" max="23" step="1" placeholder="9"/>
+              </div>
+              <div>
+                <label>工作结束时间（小时）</label>
+                <input type="number" id="inEndHour" min="1" max="24" step="1" placeholder="18"/>
+              </div>
+            </div>
+            <div class="row">
+              <span class="muted">工作日（默认 周一~周五）：</span>
+              <label><input type="checkbox" class="wk" value="1" checked>一</label>
+              <label><input type="checkbox" class="wk" value="2" checked>二</label>
+              <label><input type="checkbox" class="wk" value="3" checked>三</label>
+              <label><input type="checkbox" class="wk" value="4" checked>四</label>
+              <label><input type="checkbox" class="wk" value="5" checked>五</label>
+              <label><input type="checkbox" class="wk" value="6">六</label>
+              <label><input type="checkbox" class="wk" value="7">日</label>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="acd">
+        <summary>界面 / 强调色</summary>
+        <div class="row" style="margin-top:10px; gap:10px">
+          <div>
+            <label>主色（影响按钮/复选框/环形图）</label>
+            <input type="color" id="inAccent" value="#6AA7FF"/>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:10px">
+          <div class="row" style="justify-content:space-between"><strong>昼夜色系</strong><label class="row" style="gap:6px"><input type="checkbox" id="enDayNight"/> 启用</label></div>
+          <div class="row" style="justify-content:flex-start; gap:16px; margin-top:6px">
+            <label class="row" style="gap:6px"><input type="checkbox" id="syncTheme"/> 启用时同步切换浅/深主题（白天=浅色，夜晚=深色）</label>
+          </div>
+          <div id="dnCfg" style="display:none; margin-top:8px">
+            <div class="two">
+              <div>
+                <label>白天主色</label>
+                <input type="color" id="dayColor" value="#6AA7FF"/>
+              </div>
+              <div>
+                <label>夜晚主色</label>
+                <input type="color" id="nightColor" value="#70E1C8"/>
+              </div>
+            </div>
+            <div class="two" style="margin-top:10px">
+              <div>
+                <label>白天背景色</label>
+                <input type="color" id="dayBg" value="#F7F7F9"/>
+              </div>
+              <div>
+                <label>夜晚背景色</label>
+                <input type="color" id="nightBg" value="#0E1116"/>
+              </div>
+            </div>
+            <div class="two" style="margin-top:10px">
+              <div>
+                <label>白天开始小时（0-23）</label>
+                <input type="number" id="dayStart" min="0" max="23" step="1" placeholder="7"/>
+              </div>
+              <div>
+                <label>夜晚开始小时（0-23）</label>
+                <input type="number" id="nightStart" min="0" max="23" step="1" placeholder="19"/>
+              </div>
+            </div>
+            <div class="hint">启用后会按本地时间在白天/夜晚之间切换主色与背景色。默认白天 7:00 开始，夜晚 19:00 开始。</div>
+          </div>
+        </div>
+      </details>
+
+      <div class="row" style="justify-content:flex-end; gap:8px; margin-top:10px">
+        <button class="btn" id="btnReset">清空数据</button>
+        <button class="btn" data-close>关闭</button>
+        <button class="btn primary" id="btnSave">保存</button>
+      </div>
+      <div class="hint">不会联网，所有数据保存在你的浏览器本地。</div>
+    </div>
+  </dialog>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const $ = s=>document.querySelector(s);
+  const KEY = 'life.progress.v1';
+
+  // 工具函数
+  function clamp01(x){ return Math.max(0, Math.min(1, x||0)); }
+  function clampNum(x, min, max){ if(isNaN(x)) return min; return Math.max(min, Math.min(max, x)); }
+  function addYears(d, y){ const t = new Date(d); t.setFullYear(t.getFullYear()+y); return t; }
+  function startOfDay(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+  function daysBetween(a,b){ return Math.floor((startOfDay(b)-startOfDay(a))/86400000); }
+  function parseLocalDate(s){ const [y,m,d]=String(s).split('-').map(Number); return new Date(y||1970,(m||1)-1,d||1); }
+  function countWeekdaysSet(d1, d2, set){ const start = startOfDay(d1), end = startOfDay(d2); if(end<=start) return 0; const totalDays = Math.floor((end-start)/86400000); let cnt = 0; for(let i=0;i<totalDays;i++){ const day = (start.getDay()+i)||7; if(set.has(day)) cnt++; } return cnt; }
+
+  // 状态
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+  function load(){ try{ const s = localStorage.getItem(KEY); return s? JSON.parse(s): null; }catch(e){ return null; } }
+  const state = load() || { birth:'', expectYears:80, sleepHours:7.5, career:{enabled:false,startAge:22,endAge:60,startHour:9,endHour:18,weekdays:[1,2,3,4,5]}, ui:{ primary:'#6AA7FF', dayNight:{enabled:false, syncTheme:false, dayColor:'#6AA7FF', nightColor:'#70E1C8', dayBg:'#F7F7F9', nightBg:'#0E1116', dayStart:7, nightStart:19}}, fired:[] };
+
+  // 主题/主色/背景（含昼夜）
+  const prefersDarkMQ = matchMedia('(prefers-color-scheme: dark)');
+  function isDayNow(){ const cfg=state.ui?.dayNight||{}; const h=new Date().getHours(); const ds=Math.max(0,Math.min(23,parseInt(cfg.dayStart||7))); const ns=Math.max(0,Math.min(23,parseInt(cfg.nightStart||19))); return ds===ns? true : (ds<ns? (h>=ds && h<ns) : (h>=ds || h<ns)); }
+  function applyThemeModeByNow(){ const cfg=state.ui?.dayNight; if(cfg&&cfg.enabled&&cfg.syncTheme){ document.documentElement.setAttribute('data-theme', isDayNow()? 'light':'dark'); } else { document.documentElement.setAttribute('data-theme', prefersDarkMQ.matches? 'dark':'light'); } }
+  function resolvePrimaryByNow(){ try{ const cfg=state.ui&&state.ui.dayNight; if(!cfg||!cfg.enabled) return state.ui?.primary||'#6AA7FF'; const h=new Date().getHours(); const ds=Math.max(0,Math.min(23,parseInt(cfg.dayStart||7))); const ns=Math.max(0,Math.min(23,parseInt(cfg.nightStart||19))); const isDay = ds===ns? true : (ds<ns? (h>=ds && h<ns) : (h>=ds || h<ns)); return isDay? (cfg.dayColor||'#6AA7FF') : (cfg.nightColor||'#70E1C8'); }catch(e){ return state.ui?.primary||'#6AA7FF'; } }
+  function resolveBgByNow(){ try{ const cfg=state.ui&&state.ui.dayNight; if(!cfg||!cfg.enabled) return null; const h=new Date().getHours(); const ds=Math.max(0,Math.min(23,parseInt(cfg.dayStart||7))); const ns=Math.max(0,Math.min(23,parseInt(cfg.nightStart||19))); const isDay = ds===ns? true : (ds<ns? (h>=ds && h<ns) : (h>=ds || h<ns)); return isDay? (cfg.dayBg||null) : (cfg.nightBg||null); }catch(e){ return null; } }
+  function setPrimaryByHour(h){ const cfg=state.ui&&state.ui.dayNight; if(!cfg||!cfg.enabled){ applyAccent(state.ui?.primary||'#6AA7FF'); return; } const ds=Math.max(0,Math.min(23,parseInt(cfg.dayStart||7))); const ns=Math.max(0,Math.min(23,parseInt(cfg.nightStart||19))); const isDay = ds===ns? true : (ds<ns? (h>=ds && h<ns) : (h>=ds || h<ns)); applyAccent(isDay? (cfg.dayColor||'#6AA7FF') : (cfg.nightColor||'#70E1C8')); }
+  function applyAccent(hex){ const r=document.documentElement; const h=String(hex||'#6AA7FF').replace('#',''); const b=h.length===3? h.split('').map(x=>x+x).join('') : h; const n=parseInt(b,16)||0; const rr=(n>>16)&255, gg=(n>>8)&255, bb=n&255; r.style.setProperty('--primary', `#${b}`); r.style.setProperty('--ring', `rgba(${rr},${gg},${bb},0.35)`); }
+  function applyBackground(hex){ if(!hex) return; document.documentElement.style.setProperty('--bg', hex); }
+  prefersDarkMQ.addEventListener?.('change', applyThemeModeByNow);
+  applyThemeModeByNow();
+  applyAccent(resolvePrimaryByNow());
+  applyBackground(resolveBgByNow());
+
+  // UI refs
+  const lifePct=$('#lifePct'), awakeLine=$('#awakeLine'), careerLine=$('#careerLine'), barFill=$('#barFill'), yearArc=$('#yearArc'), yearPct=$('#yearPct'), poemLine=$('#poemLine');
+  const dlg=$('#dlgSettings'); const backdrop=$('#backdrop');
+  function openDialog(d){ if(!d) return; try{ d.showModal(); return; }catch(e){} try{ d.show(); return; }catch(e){} d.setAttribute('data-fallback-open','true'); backdrop?.setAttribute('data-show','true'); }
+  function closeDialog(d){ try{ d.close(); }catch(e){} d.removeAttribute('data-fallback-open'); backdrop?.removeAttribute('data-show'); }
+  $('#btnSettings')?.addEventListener('click',()=> openDialog(dlg));
+  document.querySelectorAll('dialog [data-close]')?.forEach(b=>b.addEventListener('click', e=> closeDialog(e.target.closest('dialog'))));
+  backdrop?.addEventListener('click',()=> closeDialog(dlg));
+  document.addEventListener('keydown', (ev)=>{ if(ev.key==='Escape'){ closeDialog(dlg); }});
+
+  // inputs
+  const inBirth=$('#inBirth'), inExpect=$('#inExpect'), inSleep=$('#inSleep');
+  const enCareer=$('#enCareer'), careerCfg=$('#careerCfg');
+  const inStartAge=$('#inStartAge'), inEndAge=$('#inEndAge'), inStartHour=$('#inStartHour'), inEndHour=$('#inEndHour');
+  const inAccent=$('#inAccent');
+  const enDayNight=$('#enDayNight'), dnCfg=$('#dnCfg');
+  const dayColor=$('#dayColor'), nightColor=$('#nightColor');
+  const dayBg=$('#dayBg'), nightBg=$('#nightBg');
+  const dayStart=$('#dayStart'), nightStart=$('#nightStart');
+  const syncTheme=$('#syncTheme');
+
+  function hydrateInputs(){
+    if(inBirth) inBirth.value=state.birth||'';
+    if(inExpect) inExpect.value=state.expectYears??80;
+    if(inSleep) inSleep.value=state.sleepHours??7.5;
+    if(enCareer) enCareer.checked=!!state.career.enabled;
+    if(careerCfg) careerCfg.style.display=enCareer?.checked? 'block':'none';
+    if(inStartAge) inStartAge.value=state.career.startAge; if(inEndAge) inEndAge.value=state.career.endAge;
+    if(inStartHour) inStartHour.value=state.career.startHour; if(inEndHour) inEndHour.value=state.career.endHour;
+    if(inAccent) inAccent.value=(state.ui?.primary||'#6AA7FF');
+    document.querySelectorAll('.wk').forEach(cb=>{ const v=Number(cb.value); cb.checked=state.career.weekdays.includes(v); });
+    if(enDayNight) enDayNight.checked=!!state.ui?.dayNight?.enabled;
+    if(dnCfg) dnCfg.style.display = enDayNight?.checked? 'block':'none';
+    if(dayColor) dayColor.value = state.ui?.dayNight?.dayColor || '#6AA7FF';
+    if(nightColor) nightColor.value = state.ui?.dayNight?.nightColor || '#70E1C8';
+    if(dayBg) dayBg.value = state.ui?.dayNight?.dayBg || '#F7F7F9';
+    if(nightBg) nightBg.value = state.ui?.dayNight?.nightBg || '#0E1116';
+    if(dayStart) dayStart.value = state.ui?.dayNight?.dayStart ?? 7;
+    if(nightStart) nightStart.value = state.ui?.dayNight?.nightStart ?? 19;
+    if(syncTheme) syncTheme.checked = !!state.ui?.dayNight?.syncTheme;
+  }
+  hydrateInputs();
+
+  enCareer?.addEventListener('change',()=>{ if(careerCfg) careerCfg.style.display=enCareer.checked? 'block':'none'; });
+  inAccent?.addEventListener('input',()=>{ try{ state.ui=state.ui||{}; state.ui.primary=inAccent.value; applyAccent(state.ui.primary); save(); }catch(e){} });
+
+  // 昼夜色系监听
+  enDayNight?.addEventListener('change',()=>{ state.ui.dayNight.enabled=enDayNight.checked; dnCfg.style.display=enDayNight.checked? 'block':'none'; applyThemeModeByNow(); applyAccent(resolvePrimaryByNow()); applyBackground(resolveBgByNow()); save(); });
+  syncTheme?.addEventListener('change',()=>{ state.ui.dayNight.syncTheme=syncTheme.checked; applyThemeModeByNow(); save(); });
+  dayColor?.addEventListener('input',()=>{ state.ui.dayNight.dayColor=dayColor.value; applyAccent(resolvePrimaryByNow()); save(); });
+  nightColor?.addEventListener('input',()=>{ state.ui.dayNight.nightColor=nightColor.value; applyAccent(resolvePrimaryByNow()); save(); });
+  dayBg?.addEventListener('input',()=>{ state.ui.dayNight.dayBg=dayBg.value; applyBackground(resolveBgByNow()); save(); });
+  nightBg?.addEventListener('input',()=>{ state.ui.dayNight.nightBg=nightBg.value; applyBackground(resolveBgByNow()); save(); });
+  dayStart?.addEventListener('input',()=>{ state.ui.dayNight.dayStart=Math.max(0,Math.min(23,parseInt(dayStart.value||'7'))); applyThemeModeByNow(); applyAccent(resolvePrimaryByNow()); applyBackground(resolveBgByNow()); save(); });
+  nightStart?.addEventListener('input',()=>{ state.ui.dayNight.nightStart=Math.max(0,Math.min(23,parseInt(nightStart.value||'19'))); applyThemeModeByNow(); applyAccent(resolvePrimaryByNow()); applyBackground(resolveBgByNow()); save(); });
+
+  // 保存按钮
+  $('#btnSave')?.addEventListener('click',()=>{
+    const birth=inBirth?.value||'';
+    const expect=clampNum(parseFloat(inExpect?.value||'80'),1,150);
+    const sleep=clampNum(parseFloat(inSleep?.value||'7.5'),0,24);
+    if(birth && isNaN(Date.parse(birth))) return alert('生日格式不正确');
+    if(sleep<0||sleep>24) return alert('睡眠时长必须在 0~24 小时之间');
+    const enabled=!!enCareer?.checked;
+    let startAge=clampNum(parseInt(inStartAge?.value||'22'),10,120);
+    let endAge=clampNum(parseInt(inEndAge?.value||'60'),11,130);
+    let startHour=clampNum(parseInt(inStartHour?.value||'9'),0,23);
+    let endHour=clampNum(parseInt(inEndHour?.value||'18'),1,24);
+    if(enabled && endAge<=startAge) return alert('结束年龄必须大于起始年龄');
+    if(enabled && endHour<=startHour) return alert('工作结束时间必须大于开始时间');
+    const weekdays=Array.from(document.querySelectorAll('.wk:checked')).map(x=>Number(x.value));
+    if(enabled && weekdays.length===0) return alert('至少选择一个工作日');
+    state.birth=birth; state.expectYears=expect; state.sleepHours=sleep; state.career={enabled,startAge,endAge,startHour,endHour,weekdays};
+    // 同步昼夜配置
+    state.ui.dayNight.enabled=!!enDayNight?.checked;
+    state.ui.dayNight.syncTheme=!!syncTheme?.checked;
+    state.ui.dayNight.dayColor=dayColor?.value||'#6AA7FF';
+    state.ui.dayNight.nightColor=nightColor?.value||'#70E1C8';
+    state.ui.dayNight.dayBg=dayBg?.value||'#F7F7F9';
+    state.ui.dayNight.nightBg=nightBg?.value||'#0E1116';
+    state.ui.dayNight.dayStart=Math.max(0,Math.min(23,parseInt(dayStart?.value||'7')));
+    state.ui.dayNight.nightStart=Math.max(0,Math.min(23,parseInt(nightStart?.value||'19')));
+    save(); applyThemeModeByNow(); applyAccent(resolvePrimaryByNow()); applyBackground(resolveBgByNow()); closeDialog(dlg);
+  });
+
+  $('#btnReset')?.addEventListener('click',()=>{ if(confirm('确定清空所有数据？')){ localStorage.removeItem(KEY); state.birth=''; state.expectYears=80; state.sleepHours=7.5; state.career={enabled:false,startAge:22,endAge:60,startHour:9,endHour:18,weekdays:[1,2,3,4,5]}; state.ui.dayNight={enabled:false,syncTheme:false,dayColor:'#6AA7FF',nightColor:'#70E1C8',dayBg:'#F7F7F9',nightBg:'#0E1116',dayStart:7,nightStart:19}; state.fired=[]; hydrateInputs(); applyThemeModeByNow(); applyAccent(resolvePrimaryByNow()); applyBackground(resolveBgByNow()); } });
+
+  // 渲染循环
+  let lastPct=0; function tick(){ const now=new Date(); const life=computeLife(now); const awake=computeAwake(now); const year=computeYear(now); const career=state.career.enabled? computeCareer(now):null; lifePct&&(lifePct.textContent=(life*100).toFixed(1)+'%'); awakeLine&&(awakeLine.textContent='清醒生命 '+(awake*100).toFixed(1)+'%'); if(careerLine){ career===null? careerLine.textContent='职业生命 · 未设置' : (careerLine.textContent='职业生命 '+(career*100).toFixed(1)+'%'); } if(barFill){ barFill.style.width=(life*100).toFixed(4)+'%'; } if(yearArc&&yearPct){ const c=clamp01(year); const C=2*Math.PI*18; yearArc.setAttribute('stroke-dasharray',(C*c)+' '+(C*(1-c))); yearPct.textContent=Math.round(c*100)+'%'; } handleMilestones(lastPct,life); lastPct=life; setTimeout(()=>requestAnimationFrame(tick),250);} requestAnimationFrame(tick);
+
+  function computeLife(now){ if(!state.birth) return 0; const birth=parseLocalDate(state.birth); const end=addYears(birth,state.expectYears||80); return clamp01((now-birth)/(end-birth)); }
+  function computeAwake(now){ if(!state.birth) return 0; const birth=parseLocalDate(state.birth); const end=addYears(birth,state.expectYears||80); const lifeSec=(end-birth)/1000; const days=daysBetween(birth,now); const awakeSec=clampNum((24-(state.sleepHours??7.5))*3600,0,24*3600)*days; return clamp01(awakeSec/lifeSec); }
+  function computeYear(now){ const y=now.getFullYear(); const s=new Date(y,0,1,0,0,0,0); const e=new Date(y+1,0,1,0,0,0,0); return clamp01((now-s)/(e-s)); }
+  function computeCareer(now){ const c=state.career; if(!c?.enabled||!state.birth) return null; const birth=parseLocalDate(state.birth); const ws=addYears(birth,c.startAge||22); const we=addYears(birth,c.endAge||60); if(we<=ws) return 0; const wkTotal=countWeekdaysSet(ws,we,new Set(c.weekdays||[1,2,3,4,5])); const secondsPerDay=Math.max(0,Math.min(24,(c.endHour||18)-(c.startHour||9)))*3600; const totalSec=wkTotal*secondsPerDay; let doneSec=0; if(now<=ws) doneSec=0; else if(now>=we){ doneSec=totalSec; } else { const wkDone=countWeekdaysSet(ws,now,new Set(c.weekdays||[1,2,3,4,5])); doneSec=wkDone*secondsPerDay; const day=now.getDay()===0?7:now.getDay(); if((c.weekdays||[]).includes(day)){ const s=new Date(now); s.setHours(c.startHour||9,0,0,0); const e=new Date(now); e.setHours(c.endHour||18,0,0,0); if(now>s){ const seg=Math.min(e,now)-s; if(seg>0) doneSec+=seg/1000; } } } return totalSec>0? clamp01(doneSec/totalSec):0; }
+
+  function handleMilestones(prev,curr){ const M=[0.25,0.333,0.5,0.618,0.666,0.8]; const poems={'0.25':'四分之一天光，记得把影子也带上。','0.333':'三分之一的路，脚步与风互相理解。','0.5':'镜子正中，路也正中。','0.618':'黄金的比例，日常的奇遇。','0.666':'六成六的运气，三成四的认真。','0.8':'八成满，不必溢出。'}; for(const m of M){ if(prev<m && curr>=m && !state.fired.includes(String(m))){ if(barFill){ barFill.style.boxShadow='0 0 0 3px var(--ring) inset, 0 6px 18px rgba(0,0,0,.08)'; setTimeout(()=>{ if(barFill) barFill.style.boxShadow='none'; },1800);} if(poemLine){ poemLine.textContent=poems[String(m)]||'时间正在发生。'; } state.fired.push(String(m)); save(); break; } } }
+
+  // 每分钟检查：主色 + 主题（若同步）+ 背景
+  setInterval(()=>{ applyThemeModeByNow(); applyAccent(resolvePrimaryByNow()); applyBackground(resolveBgByNow()); },60000);
+
+  // 自检（控制台可见）
+  (function selfTest(){ try{
+    console.assert(typeof computeLife==='function','computeLife 存在');
+    const bak=JSON.parse(JSON.stringify(state)); state.birth=''; console.assert(computeLife(new Date())===0,'未设置生日时 life 为 0'); state.birth=bak.birth;
+    applyAccent('#123456'); const p=getComputedStyle(document.documentElement).getPropertyValue('--primary').trim(); console.assert(p.toLowerCase()==='#123456','applyAccent 应用主色');
+    const bakCareer={...state.career}; state.career={enabled:true,startAge:30,endAge:20,startHour:9,endHour:18,weekdays:[1,2,3,4,5]}; console.assert(computeCareer(new Date())===0,'非法职业窗返回 0'); state.career=bakCareer;
+    state.ui.dayNight={enabled:true,syncTheme:true,dayColor:'#111111',nightColor:'#222222',dayBg:'#eeeeee',nightBg:'#111111',dayStart:7,nightStart:19}; setPrimaryByHour(8); let p1=getComputedStyle(document.documentElement).getPropertyValue('--primary').trim(); console.assert(p1.toLowerCase()==='#111111','白天主色生效'); setPrimaryByHour(22); let p2=getComputedStyle(document.documentElement).getPropertyValue('--primary').trim(); console.assert(p2.toLowerCase()==='#222222','夜晚主色生效'); console.log('%c[自检] 通过','color:#2e7d32');
+  }catch(e){ console.warn('[自检失败]', e); }})();
+});
+</script>
+</body>
+</html>
